@@ -1,0 +1,12 @@
+services:
+  git-cache:
+    build: .
+    ports:
+      - "8765:8765"
+    volumes:
+      - repo-cache:/repo-cache
+    restart: unless-stopped
+
+volumes:
+  repo-cache:
+    name: repo-cache

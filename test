@@ -1,0 +1,53 @@
+#!/bin/bash
+set -e
+
+remove_dir() { 
+    [ -d "$1" ] && rm -rf "$1"
+}
+
+clone_and_time() {
+    local url="$1"
+    local dir
+    dir=$(basename "$url")
+    dir="${dir%.git}"
+    remove_dir "$dir"
+    local start=$(date +%s)
+    git clone "$url" "$dir"
+    local end=$(date +%s)
+    # Verify HEAD resolves
+    git -C "$dir" rev-parse HEAD >/dev/null 2>&1 || { 
+        echo "Error: clone failed in $dir"; 
+        remove_dir "$dir"; 
+        exit 1; 
+    }
+    remove_dir "$dir"
+    echo $(( end - start ))
+}
+
+test_clone_twice() {
+    local url="$1"
+    echo "Testing $url"
+    local t1 t2
+    t1=$(clone_and_time "$url")
+    echo "First clone took ${t1} seconds"
+    t2=$(clone_and_time "$url")
+    echo "Second clone took ${t2} seconds"
+    if [ "$t2" -ge "$t1" ]; then
+        echo "Error: second clone not faster (t2=${t2} vs t1=${t1})"
+        exit 1
+    fi
+    local diff=$(( t1 - t2 ))
+    echo -e "\033[0;32mSuccess testing '$url'\nSecond clone was faster\nFirst (uncached): ${t1} seconds\nSecond (cached): ${t2} seconds\nDiff: ${diff} seconds\033[0m"
+}
+
+./run &
+
+sleep 10
+
+test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Vector.git"
+# test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Timeless.git"
+# test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/core.git"
+
+docker compose down
+
+echo -e "\033[0;32mAll tests passed!\033[0m"
