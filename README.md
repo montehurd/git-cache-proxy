@@ -42,22 +42,35 @@ Do this:
 # Scripts
 
 * `./print-cache` 
+
   Displays the current contents of the cache using `tree`, showing all cached repositories and their internal structure
 
 * `./reset-cache`
+
   Clears repositories from the cache. When run without arguments, removes all cached repositories. Can also remove a specific repository by passing its URL:
-  - ./reset-cache # Clear entire cache
-  - ./reset-cache http://example.com/repo.git # Remove specific repo
+
+  Clear entire cache:
+
+  `./reset-cache`
+
+  Remove specific repo:
+
+  `./reset-cache http://example.com/repo.git`
 
 * `./start`
+
   Brings up the caching proxy:
+
   - Removes any existing containers and images
   - Starts the service on port 8765 
   - Shows container logs for monitoring
+
   You can uncomment the last line to debug the git-cache-handler.sh script instead
 
 * `./test` 
+
   Runs integration tests to verify the cache is working correctly:
+
   - Starts the proxy
   - Performs two clones of the same repository
   - Validates that the second clone is faster than the first
