@@ -6,6 +6,8 @@ git config --global pack.threads $thread_count
 git config --global fetch.parallel $thread_count
 git config --global submodule.fetchJobs $thread_count
 git config --global grep.threads $thread_count
+git config --global pack.readThreads $thread_count
+git config --global pack.writeThreads $thread_count
 
 # Preload index for parallel reads
 git config --global core.preloadIndex true
@@ -16,11 +18,14 @@ git config --global pack.compression 9
 git config --global pack.window 100
 
 git config --global pack.writeRevIndex true
-git config --global pack.deltaCacheSize 512m
-git config --global core.packedGitWindowSize 512m
-git config --global core.packedGitLimit 1g
-git config --global pack.windowMemory 512m
+git config --global pack.deltaCacheSize 1g
+git config --global core.packedGitWindowSize 1g
+git config --global core.packedGitLimit 4g
+git config --global pack.windowMemory 1g
 git config --global core.bigFileThreshold 512m
+
+git config --global core.multiPackIndex true
+git config --global pack.allowPackReuse true
 
 # Set log file path
 PROGRESS_LOG=/var/log/git-cache/progress.log
