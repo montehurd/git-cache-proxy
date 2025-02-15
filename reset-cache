@@ -1,0 +1,4 @@
+#!/bin/sh
+set -x
+
+docker compose exec git-cache sh -c 'rm -rfv /repo-cache/* 2>&1; echo "Exit code: $?"'
