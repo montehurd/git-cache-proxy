@@ -82,6 +82,6 @@ While the cache maintains full-depth clones internally, clients can still use op
 
 # Debugging
 
-After running `./start` you can tail progress.log:
+After running `./start` you can tail `progress.log`:
 
 `docker compose exec git-cache tail -f /var/log/git-cache/progress.log`
