@@ -1,11 +1,17 @@
 #!/bin/sh -x
 
-exec 2>/var/log/git-cache/handler.log
+# Set thread counts for various Git operations
+thread_count=$(getconf _NPROCESSORS_ONLN)
+git config --global pack.threads $thread_count
+git config --global fetch.parallel $thread_count
+git config --global submodule.fetchJobs $thread_count
+git config --global grep.threads $thread_count
 
-# Set all required vars
-export GIT_PROJECT_ROOT=/repo-cache
-export GIT_HTTP_EXPORT_ALL=1
-export PATH=/usr/libexec/git-core:$PATH
+# Preload index for parallel reads
+git config --global core.preloadIndex true
+
+# Set log file path
+PROGRESS_LOG=/var/log/git-cache/progress.log
 
 # Convert PATH_INFO back to original URL
 # Remove /info/refs and other git suffixes first
@@ -15,12 +21,24 @@ REPO_URL="https://$CLEAN_PATH"
 # Use full path structure
 REPO_PATH="/repo-cache/$CLEAN_PATH"
 
-if [ ! -d "$REPO_PATH" ]; then
-    mkdir -p "$(dirname "$REPO_PATH")"
-    git clone --bare --no-tags "$REPO_URL" "$REPO_PATH"
-else
-    cd "$REPO_PATH" && git fetch --no-tags
+# Only do clone/fetch for info/refs requests
+if echo "$PATH_INFO" | grep -q "/info/refs$"; then
+    if [ ! -d "$REPO_PATH" ]; then
+        mkdir -p "$(dirname "$REPO_PATH")"
+        echo "Starting git clone of $REPO_URL" >> $PROGRESS_LOG
+        git clone --bare --no-tags --progress "$REPO_URL" "$REPO_PATH" 2>> $PROGRESS_LOG
+        echo "Finished git clone" >> $PROGRESS_LOG
+    else
+        echo "Starting git fetch of $REPO_URL" >> $PROGRESS_LOG
+        cd "$REPO_PATH" && git fetch --no-tags --progress 2>> $PROGRESS_LOG
+        echo "Finished git fetch" >> $PROGRESS_LOG
+    fi
 fi
+
+# Set required vars for git-http-backend
+export GIT_PROJECT_ROOT=/repo-cache
+export GIT_HTTP_EXPORT_ALL=1
+export PATH=/usr/libexec/git-core:$PATH
 
 # start git-http-backend
 exec /usr/libexec/git-core/git-http-backend

@@ -10,7 +10,9 @@ RUN apk add --no-cache --update \
     rm -f /var/log/nginx/access.log /var/log/nginx/error.log && \
     mkdir -p /repo-cache /etc/git-cache /tmp/git-home /var/run /var/log/git-cache && \
     chown -R nginx:nginx /repo-cache /etc/git-cache /tmp/git-home /var/log/git-cache && \
-    chmod 755 /var/log/git-cache
+    chmod 755 /var/log/git-cache && \
+    touch /var/log/git-cache/progress.log && \
+    chown nginx:nginx /var/log/git-cache/progress.log
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY git-cache-handler.sh /usr/local/bin/
