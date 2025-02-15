@@ -1,18 +1,19 @@
 Provides a transparent git caching proxy that:
 
-1. Intercepts git clone/fetch requests via HTTP
-2. On first request for a repository:
+1. Is easy to use - simply slightly modify the `.git` url being cloned
+2. Intercepts git clone/fetch requests via HTTP
+3. On first request for a repository:
    - Creates a `--bare` clone of the upstream repository
    - Stores it in a Docker volume (`repo-cache`)
    - Serves the clone request from this local copy
-3. On subsequent requests:
+4. On subsequent requests:
    - First updates the cached bare repo with `git fetch`
    - Then serves the request from the local cache
    - Results in significantly faster clones
 
 The proxy is transparent to git clients - they interact with it just like any git HTTP server
 
-The caching happens automatically without any special configuration needed on the client side
+The caching happens automatically without any special configuration needed on the client side aside from the adjusted url
 
 # Try it
 
