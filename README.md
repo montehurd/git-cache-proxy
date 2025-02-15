@@ -1,4 +1,4 @@
-This project provides a transparent git caching proxy that:
+Provides a transparent git caching proxy that:
 
 1. Intercepts git clone/fetch requests via HTTP
 2. On first request for a repository:
