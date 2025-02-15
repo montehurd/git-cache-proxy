@@ -1,6 +1,6 @@
 To try:
 
-`./build`
+`./start`
 
 Then:
 

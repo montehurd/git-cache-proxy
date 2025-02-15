@@ -1,6 +1,7 @@
 services:
   git-cache:
-    build: .
+    build:
+      context: git-cache
     ports:
       - "8765:8765"
     volumes:
