@@ -37,17 +37,17 @@ REPO_PATH="/repo-cache/$CLEAN_PATH"
 if echo "$PATH_INFO" | grep -q "/info/refs$"; then
     if [ ! -d "$REPO_PATH" ]; then
         mkdir -p "$(dirname "$REPO_PATH")"
-        echo -e "\nStarting git clone of $REPO_URL" >> $PROGRESS_LOG
+        echo -e "\nStarting cache git clone of '$REPO_URL'" >> $PROGRESS_LOG
         start=$(date +%s)
         git clone --bare --no-tags --progress "$REPO_URL" "$REPO_PATH" 2>> $PROGRESS_LOG
         end=$(date +%s)
-        echo "Finished git clone (took $(($end - $start)) seconds)" >> $PROGRESS_LOG
+        echo "Finished cache git clone (took $(($end - $start)) seconds)" >> $PROGRESS_LOG
     else
-        echo -e "\nStarting git fetch of $REPO_URL" >> $PROGRESS_LOG
+        echo -e "\nStarting cache git fetch of '$REPO_URL'" >> $PROGRESS_LOG
         start=$(date +%s)
         cd "$REPO_PATH" && git fetch --no-tags --progress 2>> $PROGRESS_LOG
         end=$(date +%s)
-        echo "Finished git fetch (took $(($end - $start)) seconds)" >> $PROGRESS_LOG
+        echo "Finished cache git fetch (took $(($end - $start)) seconds)" >> $PROGRESS_LOG
     fi
 fi
 
