@@ -1,7 +1,7 @@
 Provides a transparent git caching proxy that:
 
 1. Is easy to use - simply slightly modify the `.git` url being cloned
-2. Intercepts git clone/fetch requests via HTTP
+2. Intercepts git clone/fetch requests via git's HTTP protocol
 3. On first request for a repository:
    - Creates a `--bare` clone of the upstream repository
    - Stores it in a Docker volume (`repo-cache`)
