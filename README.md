@@ -47,7 +47,7 @@ Do this:
 
 * `./reset-cache`
 
-  Clears repositories from the cache. When run without arguments, removes all cached repositories. Can also remove a specific repository by passing its URL:
+  Clears repositories from the cache. When run without arguments, removes all cached repositories. Can also remove a specific repository by passing its URL
 
   Clear entire cache:
 
