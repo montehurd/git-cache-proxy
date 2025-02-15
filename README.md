@@ -28,5 +28,6 @@ Benefits:
 - Works with any git HTTP URL
 - Maintains a single source of truth via the bare repository
 - Preserves all git functionality (branches, tags, etc)
+- Implemented using a super lightweight Alpine image
 
 Note: While the cache maintains full-depth clones internally, clients can still use options like --depth to create shallow clones from the cached repository. This gives you the best of both worlds - the cache has all history available, but clients can choose how much they want to fetch.
