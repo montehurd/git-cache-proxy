@@ -40,7 +40,7 @@ test_clone_twice() {
     echo -e "\033[0;32mSuccess testing '$url'\nSecond clone was faster\nFirst (uncached): ${t1} seconds\nSecond (cached): ${t2} seconds\nDiff: ${diff} seconds\033[0m"
 }
 
-./run &
+./build &
 
 sleep 10
 
