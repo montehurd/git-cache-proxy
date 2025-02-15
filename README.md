@@ -53,7 +53,7 @@ Do this:
 
   `./reset-cache`
 
-  Remove specific repo:
+  Remove specific repo cache:
 
   `./reset-cache http://example.com/repo.git`
 
