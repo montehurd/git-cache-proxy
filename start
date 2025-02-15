@@ -2,7 +2,7 @@
 set -x
 
 docker compose down
-docker image rm git-cache-server-git-cache --force
+docker image rm git-cache-proxy-git-cache --force
 docker volume rm repo-cache --force
 docker compose up -d
 docker compose logs -f
