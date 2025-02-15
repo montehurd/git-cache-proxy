@@ -1,8 +1,8 @@
-To try:
+To try it, start it:
 
 `./start`
 
-Then:
+Then clone a repo:
 
 `git clone http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Vector.git`
 
