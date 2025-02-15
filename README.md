@@ -40,7 +40,7 @@ Do this:
 
 # Notes
 
-While the cache maintains full-depth clones internally, clients can still use options like --depth to create shallow clones from the cached repository. This gives you the best of both worlds - the cache has all history available, but clients can choose how much they want to fetch from the cache
+While the cache maintains full-depth clones internally, clients can still use options like `--depth` to create shallow clones from the cached repository. This gives you the best of both worlds - the cache has all history available, but clients can choose how much they want to fetch from the cache
 
 # Debugging
 
