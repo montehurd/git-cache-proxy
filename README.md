@@ -2,9 +2,15 @@ To try it, start it:
 
 `./start`
 
-Then clone a repo:
+Then, instead of cloning the repo's url directly like this:
+
+`git clone http://gerrit.wikimedia.org/r/mediawiki/skins/Vector.git`
+
+Do this:
 
 `git clone http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Vector.git`
+
+^ Note the url starts with `http://localhost:8765`, followed by the repo url
 
 This project provides a transparent git caching proxy that:
 
@@ -18,9 +24,9 @@ This project provides a transparent git caching proxy that:
    - Then serves the request from the local cache
    - Results in significantly faster clones
 
-The proxy is transparent to git clients - they interact with it just like any git HTTP server.
+The proxy is transparent to git clients - they interact with it just like any git HTTP server
 
-The caching happens automatically without any special configuration needed on the client side.
+The caching happens automatically without any special configuration needed on the client side
 
 Benefits:
 - Faster repeat clones of large repositories
@@ -30,4 +36,4 @@ Benefits:
 - Preserves all git functionality (branches, tags, etc)
 - Implemented using a super lightweight Alpine image
 
-Note: While the cache maintains full-depth clones internally, clients can still use options like --depth to create shallow clones from the cached repository. This gives you the best of both worlds - the cache has all history available, but clients can choose how much they want to fetch from the cache.
+Note: While the cache maintains full-depth clones internally, clients can still use options like --depth to create shallow clones from the cached repository. This gives you the best of both worlds - the cache has all history available, but clients can choose how much they want to fetch from the cache
