@@ -1,4 +1,15 @@
 #!/bin/sh
-set -x
 
-docker compose exec git-cache sh -c 'rm -rfv /repo-cache/* 2>&1; echo "Exit code: $?"'
+if [ $# -eq 0 ]; then
+    # Clear entire cache if no repo url was passed to the script
+    docker compose exec git-cache sh -c 'rm -rfv /repo-cache/* 2>&1; echo "Exit code: $?"'
+else
+    # Clear just the cache for the repo url passed to the script
+    # Strip http:// or https:// prefix
+    repo_path=$(echo "$1" | sed -E 's#^https?://##')
+    case "$repo_path" in
+        *.git) ;;
+        *) repo_path="${repo_path}.git" ;;
+    esac
+    docker compose exec git-cache sh -c "[ -d \"/repo-cache/$repo_path\" ] && rm -rfv \"/repo-cache/$repo_path\" 2>&1 || echo \"Repository not found in cache\"; echo \"Exit code: \$?\""
+fi
