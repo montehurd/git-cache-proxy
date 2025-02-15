@@ -40,5 +40,7 @@ export GIT_PROJECT_ROOT=/repo-cache
 export GIT_HTTP_EXPORT_ALL=1
 export PATH=/usr/libexec/git-core:$PATH
 
-# start git-http-backend
+# Hand off to git-http-backend which implements the server side of 
+# git's smart HTTP protocol. This allows git clients to clone/fetch 
+# from our cached bare repositories
 exec /usr/libexec/git-core/git-http-backend
