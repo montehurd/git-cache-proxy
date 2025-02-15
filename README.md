@@ -65,7 +65,7 @@ Do this:
   - Starts the service on port 8765 
   - Shows container logs for monitoring
 
-  You can uncomment the last line to debug the git-cache-handler.sh script instead
+  You can uncomment the last line to debug the `git-cache-handler.sh` script instead
 
 * `./test` 
 
