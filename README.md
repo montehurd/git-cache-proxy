@@ -38,6 +38,7 @@ Do this:
 - Maintains a single source of truth via the bare repository
 - Preserves all git functionality (branches, tags, etc)
 - Implemented using a super lightweight Alpine image
+- A per-repo locking mechanism ensures concurrent clone requests for the same repo wait for any in-progress cache clone/fetch to complete before being served from the cache
 
 # Scripts
 
