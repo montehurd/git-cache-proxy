@@ -1,4 +1,6 @@
-#!/bin/sh -x
+#!/bin/sh
+
+set -ex
 
 # Set thread counts for various Git operations
 thread_count=$(getconf _NPROCESSORS_ONLN)
@@ -19,22 +21,17 @@ REPO_URL="https://$CLEAN_PATH"
 
 # Use full path structure
 REPO_PATH="/repo-cache/$CLEAN_PATH"
+LOCK_FILE="${REPO_PATH}.lock"
 
 # Only do clone/fetch for info/refs requests
 if echo "$PATH_INFO" | grep -q "/info/refs$"; then
-    if [ ! -d "$REPO_PATH" ]; then
-        mkdir -p "$(dirname "$REPO_PATH")"
-        echo -e "\nStarting cache git clone of '$REPO_URL'" >> $PROGRESS_LOG
-        start=$(date +%s)
-        git clone --bare --no-tags --progress "$REPO_URL" "$REPO_PATH" 2>> $PROGRESS_LOG
-        end=$(date +%s)
-        echo "Finished cache git clone (took $(($end - $start)) seconds)" >> $PROGRESS_LOG
-    else
-        echo -e "\nStarting cache git fetch of '$REPO_URL'" >> $PROGRESS_LOG
-        start=$(date +%s)
-        cd "$REPO_PATH" && git fetch --no-tags --progress 2>> $PROGRESS_LOG
-        end=$(date +%s)
-        echo "Finished cache git fetch (took $(($end - $start)) seconds)" >> $PROGRESS_LOG
+    mkdir -p "$(dirname "$REPO_PATH")"
+    touch "$LOCK_FILE"
+
+    # Try the clone/fetch inside an exclusive lock
+    if ! flock -x "$LOCK_FILE" /usr/local/bin/git-cache-operation.sh "$REPO_PATH" "$REPO_URL" "$PROGRESS_LOG"; then
+        echo "Failed to acquire lock or operation failed for $REPO_URL" >> "$PROGRESS_LOG"
+        exit 1
     fi
 fi
 
@@ -43,7 +40,7 @@ export GIT_PROJECT_ROOT=/repo-cache
 export GIT_HTTP_EXPORT_ALL=1
 export PATH=/usr/libexec/git-core:$PATH
 
-# Hand off to git-http-backend which implements the server side of 
-# git's smart HTTP protocol. This allows git clients to clone/fetch 
+# Hand off to git-http-backend which implements the server side of
+# git's smart HTTP protocol. This allows git clients to clone/fetch
 # from our cached bare repositories
 exec /usr/libexec/git-core/git-http-backend

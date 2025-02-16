@@ -17,6 +17,10 @@ RUN apk add --no-cache --update \
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY git-cache-handler.sh /usr/local/bin/
 COPY start.sh /start.sh
+COPY git-cache-operation.sh /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/git-cache-operation.sh && \
+    chown nginx:nginx /usr/local/bin/git-cache-operation.sh
 
 RUN chmod +x /usr/local/bin/git-cache-handler.sh /start.sh && \
     chown -R nginx:nginx /usr/local/bin/git-cache-handler.sh
