@@ -1,0 +1,8 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
+test-dind:
+  script:
+    - docker info
