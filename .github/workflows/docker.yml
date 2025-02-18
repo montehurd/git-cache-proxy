@@ -6,7 +6,7 @@
 # Or use:
 # docker pull ghcr.io/montehurd/git-cache-proxy/git-cache-proxy:latest
 
-name: Docker Build
+name: Docker Image Build
 
 on:
   push:
