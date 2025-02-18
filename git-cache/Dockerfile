@@ -2,6 +2,7 @@ FROM nginx:alpine
 
 RUN apk add --no-cache --update \
     git \
+    bash \
     git-daemon \ 
     fcgiwrap \
     spawn-fcgi && \
