@@ -40,14 +40,35 @@ test_clone_twice() {
     echo -e "\033[0;32mSuccess testing '$url'\nSecond clone was faster\nFirst (uncached): ${t1} seconds\nSecond (cached): ${t2} seconds\nDiff: ${diff} seconds\033[0m"
 }
 
+test_cache_matches_upstream() {
+    local path="$1"
+    echo "Testing branches and tags of $path match upstream"
+    # Rewind a branch in the cache, so it only matches if the cache refreshes it
+    docker compose exec -T -u nginx git-cache git -C "/repo-cache/$path" update-ref refs/heads/master master~1
+    local cached upstream
+    cached=$(git ls-remote --heads --tags "http://localhost:8765/$path" | sort)
+    upstream=$(git ls-remote --heads --tags "https://$path" | sort)
+    if [ "$cached" != "$upstream" ]; then
+        echo "Error: cache differs from upstream (< upstream, > cache):"
+        diff <(echo "$upstream") <(echo "$cached") || true
+        exit 1
+    fi
+    echo -e "\033[0;32mSuccess: $(echo "$cached" | wc -l | tr -d ' ') branches and tags match upstream\033[0m"
+}
+
+trap 'docker compose down' EXIT
+
 ./start &
 
-sleep 10
+# The image is rebuilt on every start, so wait for the readiness path rather than a fixed time
+for _ in $(seq 120); do
+    curl -sf -o /dev/null http://localhost:8765/ && break
+    sleep 1
+done
 
 test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Vector.git"
 # test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Timeless.git"
 # test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/core.git"
-
-docker compose down
+test_cache_matches_upstream "gerrit.wikimedia.org/r/mediawiki/skins/Vector.git"
 
 echo -e "\033[0;32mAll tests passed!\033[0m"

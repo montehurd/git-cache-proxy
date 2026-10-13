@@ -75,11 +75,14 @@ Do this:
   - Starts the proxy
   - Performs two clones of the same repository
   - Validates that the second clone is faster than the first
+  - Rewinds a branch in the cache, then checks the next request brings its branches and tags back in line with upstream
   - Cleans up test repositories and containers
 
 # Notes
 
 While the cache maintains full-depth clones internally, clients can still use options like `--depth` to create shallow clones from the cached repository. This gives you the best of both worlds - the cache has all history available, but clients can choose how much they want to fetch from the cache
+
+The cache holds branches and tags only, so other refs, such as Gerrit's `refs/changes/*`, are not served
 
 # Debugging
 
