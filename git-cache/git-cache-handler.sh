@@ -2,15 +2,6 @@
 
 set -ex
 
-# Set thread counts for various Git operations
-thread_count=$(getconf _NPROCESSORS_ONLN)
-git config --global pack.threads $thread_count
-git config --global fetch.parallel $thread_count
-git config --global submodule.fetchJobs $thread_count
-git config --global grep.threads $thread_count
-git config --global pack.readThreads $thread_count
-git config --global pack.writeThreads $thread_count
-
 # Set log file path
 PROGRESS_LOG=/var/log/git-cache/progress.log
 
