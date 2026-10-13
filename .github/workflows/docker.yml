@@ -1,19 +1,30 @@
 # We mirror the source repo
 #   https://gitlab.wikimedia.org/mhurd/git-cache-proxy
-# to Github so we can use Github to build a Docker image
+# to Github so we can use Github to run ./test and build a Docker image
 # artifact
 # See: https://github.com/montehurd/git-cache-proxy/pkgs/container/git-cache-proxy%2Fgit-cache-proxy
 # Or use:
 # docker pull ghcr.io/montehurd/git-cache-proxy/git-cache-proxy:latest
 
-name: Docker Image Build
+name: Test and Docker Image Build
 
 on:
   push:
     branches: [ main ]
+  pull_request:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: ./test
+
   build:
+    needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,74 +1,203 @@
 #!/bin/bash
-set -e
+# Starts the proxy, then checks how it serves and refreshes a real Gerrit repo.
+# Run from the repo root. Needs docker, git, curl and perl.
 
-remove_dir() { 
-    [ -d "$1" ] && rm -rf "$1"
+PROXY=http://localhost:8765
+REPO=gerrit.wikimedia.org/r/mediawiki/skins/Vector.git
+CACHED=$PROXY/$REPO
+UPSTREAM=https://$REPO
+CACHE_DIR=/repo-cache/$REPO
+PROGRESS_LOG=/var/log/git-cache/progress.log
+
+WORK=$(mktemp -d)
+cleanup() {
+    docker compose down
+    rm -rf "$WORK"
 }
+trap cleanup EXIT
 
-clone_and_time() {
-    local url="$1"
-    local dir
-    dir=$(basename "$url")
-    dir="${dir%.git}"
-    remove_dir "$dir"
-    local start=$(date +%s)
-    git clone "$url" "$dir"
-    local end=$(date +%s)
-    # Verify HEAD resolves
-    git -C "$dir" rev-parse HEAD >/dev/null 2>&1 || { 
-        echo "Error: clone failed in $dir"; 
-        remove_dir "$dir"; 
-        exit 1; 
-    }
-    remove_dir "$dir"
-    echo $(( end - start ))
-}
+in_cache() { docker compose exec -T -u nginx git-cache "$@"; }
+cache_git() { in_cache git -C "$CACHE_DIR" "$@"; }
+clear_progress_log() { in_cache sh -c ": > $PROGRESS_LOG"; }
+progress_log_count() { in_cache grep -c "$1" "$PROGRESS_LOG" || true; }
+upstream_head() { git ls-remote "$UPSTREAM" HEAD | cut -f1; }
+ensure_cached() { git ls-remote "$CACHED" > /dev/null; }
+ms() { perl -MTime::HiRes=time -e 'printf "%d", time * 1000'; }
+fail() { echo "  $*"; exit 1; }
 
-test_clone_twice() {
-    local url="$1"
-    echo "Testing $url"
-    local t1 t2
-    t1=$(clone_and_time "$url")
-    echo "First clone took ${t1} seconds"
-    t2=$(clone_and_time "$url")
-    echo "Second clone took ${t2} seconds"
-    if [ "$t2" -ge "$t1" ]; then
-        echo "Error: second clone not faster (t2=${t2} vs t1=${t1})"
-        exit 1
-    fi
-    local diff=$(( t1 - t2 ))
-    echo -e "\033[0;32mSuccess testing '$url'\nSecond clone was faster\nFirst (uncached): ${t1} seconds\nSecond (cached): ${t2} seconds\nDiff: ${diff} seconds\033[0m"
-}
-
-test_cache_matches_upstream() {
-    local path="$1"
-    echo "Testing branches and tags of $path match upstream"
-    # Rewind a branch in the cache, so it only matches if the cache refreshes it
-    docker compose exec -T -u nginx git-cache git -C "/repo-cache/$path" update-ref refs/heads/master master~1
+assert_matches_upstream() {
     local cached upstream
-    cached=$(git ls-remote --heads --tags "http://localhost:8765/$path" | sort)
-    upstream=$(git ls-remote --heads --tags "https://$path" | sort)
+    cached=$(git ls-remote --heads --tags "$CACHED" | sort)
+    upstream=$(git ls-remote --heads --tags "$UPSTREAM" | sort)
     if [ "$cached" != "$upstream" ]; then
-        echo "Error: cache differs from upstream (< upstream, > cache):"
-        diff <(echo "$upstream") <(echo "$cached") || true
-        exit 1
+        echo "  cache differs from upstream (< upstream, > cache):"
+        diff <(echo "$upstream") <(echo "$cached") | sed 's/^/  /'
+        return 1
     fi
-    echo -e "\033[0;32mSuccess: $(echo "$cached" | wc -l | tr -d ' ') branches and tags match upstream\033[0m"
 }
 
-trap 'docker compose down' EXIT
+# Runs a command 8 times at once, each with its own target directory, and fails unless all succeed
+assert_all_succeed_in_parallel() {
+    local name="$1"; shift
+    local i
+    for i in 1 2 3 4 5 6 7 8; do
+        ( set +e; "$@" "$WORK/$name$i" > "$WORK/$name$i.log" 2>&1; echo $? > "$WORK/$name$i.rc" ) &
+    done
+    wait
+    local failed
+    failed=$(grep -L -x 0 "$WORK/$name"*.rc | wc -l | tr -d ' ')
+    if [ "$failed" != 0 ]; then
+        echo "  $failed of 8 failed, for example:"
+        tail -1 "$(grep -L -x 0 "$WORK/$name"*.rc | head -1 | sed 's/\.rc$/.log/')" | sed 's/^/  /'
+        return 1
+    fi
+}
 
-./start &
+test_cold_clone_matches_upstream() {
+    in_cache rm -rf "$CACHE_DIR"
+    clear_progress_log
+    local start head
+    start=$(ms)
+    git clone -q "$CACHED" "$WORK/cold"
+    echo "  cold clone took $(( $(ms) - start )) ms"
+    head=$(git -C "$WORK/cold" rev-parse HEAD)
+    [ "$head" = "$(upstream_head)" ] || fail "HEAD $head differs from upstream"
+    git -C "$WORK/cold" fsck --no-dangling --no-progress
+    [ "$(progress_log_count 'Starting cache git clone')" = 1 ] || fail "expected one cache clone"
+}
+
+test_warm_clone_is_served_from_cache() {
+    ensure_cached
+    clear_progress_log
+    local start
+    start=$(ms)
+    git clone -q "$CACHED" "$WORK/warm"
+    echo "  warm clone took $(( $(ms) - start )) ms"
+    [ "$(progress_log_count 'Starting cache git clone')" = 0 ] || fail "cloned upstream again"
+    [ "$(progress_log_count 'Starting cache git fetch')" = 1 ] || fail "did not refresh the cache"
+}
+
+test_moved_branch_is_refreshed() {
+    ensure_cached
+    # Rewind a branch in the cache, so it only matches if the cache refreshes it
+    cache_git update-ref refs/heads/master master~1
+    assert_matches_upstream
+}
+
+test_deleted_branches_and_tags_are_pruned() {
+    ensure_cached
+    cache_git update-ref refs/heads/deleted-upstream master
+    cache_git tag deleted-upstream master
+    assert_matches_upstream
+}
+
+test_only_branches_and_tags_are_cached() {
+    ensure_cached
+    local other
+    other=$(cache_git for-each-ref --format='%(refname)' | grep -v -E '^refs/(heads|tags)/' || true)
+    [ -z "$other" ] || fail "cache holds other refs, such as $(echo "$other" | head -1)"
+}
+
+test_shallow_clone() {
+    git clone -q --depth 1 "$CACHED" "$WORK/shallow"
+    [ "$(git -C "$WORK/shallow" rev-list --count HEAD)" = 1 ] || fail "expected one commit"
+    [ "$(git -C "$WORK/shallow" rev-parse HEAD)" = "$(upstream_head)" ] || fail "HEAD differs from upstream"
+}
+
+test_fetch_into_existing_clone() {
+    git clone -q "$CACHED" "$WORK/existing"
+    git -C "$WORK/existing" update-ref refs/remotes/origin/master origin/master~1
+    git -C "$WORK/existing" fetch -q origin
+    [ "$(git -C "$WORK/existing" rev-parse origin/master)" = "$(git ls-remote "$UPSTREAM" refs/heads/master | cut -f1)" ] ||
+        fail "origin/master differs from upstream after fetch"
+}
+
+test_concurrent_cold_clones() {
+    in_cache rm -rf "$CACHE_DIR"
+    clear_progress_log
+    assert_all_succeed_in_parallel cold-clone git clone -q "$CACHED"
+    [ "$(progress_log_count 'Starting cache git clone')" = 1 ] || fail "expected one cache clone"
+}
+
+test_concurrent_warm_clones() {
+    ensure_cached
+    assert_all_succeed_in_parallel warm-clone git clone -q "$CACHED"
+}
+
+test_push_is_refused() {
+    git clone -q "$CACHED" "$WORK/push"
+    git -C "$WORK/push" -c user.name=test -c user.email=test@example.com commit -q --allow-empty -m test
+    if git -C "$WORK/push" push -q origin HEAD:refs/heads/push-test 2> /dev/null; then
+        fail "push succeeded"
+    fi
+    [ -z "$(cache_git for-each-ref refs/heads/push-test)" ] || fail "pushed branch is in the cache"
+}
+
+test_missing_upstream_repo_fails_cleanly() {
+    local missing=gerrit.wikimedia.org/r/git-cache-proxy-test-missing.git
+    local attempt start
+    # A second attempt checks the failed clone left nothing behind to fetch into
+    for attempt in 1 2; do
+        start=$(ms)
+        if GIT_TERMINAL_PROMPT=0 git ls-remote "$PROXY/$missing" > /dev/null 2>&1; then
+            fail "attempt $attempt succeeded"
+        fi
+        [ $(( $(ms) - start )) -lt 30000 ] || fail "attempt $attempt took over 30 s to fail"
+    done
+    in_cache sh -c "test ! -e /repo-cache/$missing" || fail "left a repo directory behind"
+}
+
+test_reset_cache_removes_one_repo() {
+    ensure_cached
+    ./reset-cache "$UPSTREAM" > /dev/null
+    in_cache sh -c "test ! -e $CACHE_DIR" || fail "repo is still cached"
+    clear_progress_log
+    ensure_cached
+    [ "$(progress_log_count 'Starting cache git clone')" = 1 ] || fail "next request did not clone it again"
+}
+
+PASSED=0
+FAILED=
+run() {
+    echo "--- $1"
+    ( set -e; "$1" )
+    if [ $? = 0 ]; then
+        PASSED=$(( PASSED + 1 ))
+        echo -e "\033[0;32m  ok\033[0m"
+    else
+        FAILED="$FAILED $1"
+        echo -e "\033[0;31m  FAILED\033[0m"
+    fi
+}
+
+# Stop any container left from an interrupted run, so it can't pass the readiness check
+docker compose down 2> /dev/null
+./start > "$WORK/start.log" 2>&1 &
 
 # The image is rebuilt on every start, so wait for the readiness path rather than a fixed time
 for _ in $(seq 120); do
-    curl -sf -o /dev/null http://localhost:8765/ && break
+    curl -sf -o /dev/null "$PROXY/" && break
     sleep 1
 done
+curl -sf -o /dev/null "$PROXY/" || { echo "Proxy never became ready:"; tail -20 "$WORK/start.log"; exit 1; }
 
-test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Vector.git"
-# test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/skins/Timeless.git"
-# test_clone_twice "http://localhost:8765/gerrit.wikimedia.org/r/mediawiki/core.git"
-test_cache_matches_upstream "gerrit.wikimedia.org/r/mediawiki/skins/Vector.git"
+run test_cold_clone_matches_upstream
+run test_warm_clone_is_served_from_cache
+run test_moved_branch_is_refreshed
+run test_deleted_branches_and_tags_are_pruned
+run test_only_branches_and_tags_are_cached
+run test_shallow_clone
+run test_fetch_into_existing_clone
+run test_concurrent_cold_clones
+run test_concurrent_warm_clones
+run test_push_is_refused
+run test_missing_upstream_repo_fails_cleanly
+run test_reset_cache_removes_one_repo
 
-echo -e "\033[0;32mAll tests passed!\033[0m"
+if [ -n "$FAILED" ]; then
+    echo -e "\033[0;31m$PASSED passed, failed:$FAILED\033[0m"
+    echo "Last proxy logs:"
+    docker compose logs --tail 20 git-cache
+    exit 1
+fi
+echo -e "\033[0;32mAll $PASSED tests passed!\033[0m"

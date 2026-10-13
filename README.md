@@ -70,13 +70,18 @@ Do this:
 
 * `./test` 
 
-  Runs integration tests to verify the cache is working correctly:
+  Starts the proxy and runs integration tests against a real Gerrit repo, checking that:
 
-  - Starts the proxy
-  - Performs two clones of the same repository
-  - Validates that the second clone is faster than the first
-  - Rewinds a branch in the cache, then checks the next request brings its branches and tags back in line with upstream
-  - Cleans up test repositories and containers
+  - A cold clone matches upstream, and a warm one is served from the cache after a refresh
+  - Branches that moved upstream are refreshed, and ones deleted upstream are pruned, tags included
+  - Only branches and tags are cached
+  - Shallow clones and fetches into an existing clone work
+  - Eight concurrent clones all succeed, both cold and warm
+  - Pushes are refused
+  - A missing upstream repo fails quickly and leaves nothing behind
+  - `./reset-cache` removes a single repo
+
+  It reports every failure rather than stopping at the first, then cleans up its clones and containers. GitHub Actions runs it on every push and pull request
 
 # Notes
 
